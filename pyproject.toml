@@ -6,10 +6,12 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "accelerate>=1.14.0",
-    "marimo[recommended]>=0.24.0",
+    "ipykernel>=7.3.0",
+    "marimo[lsp,recommended]>=0.24.0",
     "numpy>=2.5.2",
     "python-dotenv>=1.2.2",
     "requests>=2.34.2",
     "torch>=2.13.0",
     "transformers>=5.15.1",
+    "ty>=0.0.78",
 ]

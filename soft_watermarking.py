@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.24.0"
-app = marimo.App(width="medium")
+app = marimo.App(width="medium", auto_download=["ipynb"])
 
 
 @app.cell
@@ -32,29 +32,9 @@ def _(mo):
 
 @app.cell
 def _():
-    import abc
     import random
-
     import numpy as np
-
     from torch import FloatTensor, Tensor
-
-
-    class TextGenerator(abc.ABC):
-        """Abstract class representing an LLM generating text by returning logits"""
-
-        @abc.abstractmethod
-        def next_token_logits(self, prompt: str) -> list[float]:
-            """
-            Generates next token's logits
-
-            Args:
-                prompt (str): Prompt given to the model.
-
-            Returns:
-                list[float]: Logits.
-            """
-            pass
 
 
     class SoftWaterMarker:
@@ -84,7 +64,7 @@ def _():
             """
             new_logits: Tensor = logits.clone()
             for i in self.green_list:
-                new_logits[:,-1j,i] += self.delta
+                new_logits[:, -1, i] += self.delta
             return new_logits
 
 
@@ -121,7 +101,13 @@ def _(FloatTensor):
 
     logits: FloatTensor = outputs.logits  # ty:ignore[invalid-assignment]
     print(logits.shape)  # [batch_size, sequence_length, vocab_size]
-    return logits, torch
+    return (
+        AutoModelForCausalLM,
+        AutoTokenizer,
+        CausalLMOutputWithPast,
+        logits,
+        torch,
+    )
 
 
 @app.cell
@@ -132,6 +118,37 @@ def _(SoftWaterMarker, logits: "FloatTensor", torch):
     updated_logits = torch.softmax(updated_logits,dim=2)
     assert updated_logits[:,-1,:].sum() == 1.0, f"sum of logits should be 1 but got {updated_logits[:,-1,:].sum()}"
     print(updated_logits.shape)
+    return
+
+
+@app.cell
+def _(
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    CausalLMOutputWithPast,
+    FloatTensor,
+    SoftWaterMarker,
+    torch,
+):
+    import abc
+
+    def generate(model: AutoModelForCausalLM, model_name:str, prompt: str, n_tokens: int, watermaker: SoftWaterMarker ):
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        assert tokenizer
+        inputs: dict[str, torch.Tensor] = tokenizer(prompt, return_tensors="pt")
+    
+        with torch.no_grad():
+            outputs: CausalLMOutputWithPast = model(**inputs)
+    
+        logits: FloatTensor = outputs.logits
+        print(logits.shape)
+        vocabulary_size = logits.shape[2]
+        watermaker = SoftWaterMarker(seed=42, vocabulary_size=vocabulary_size,ratio=0.5, delta=2)
+        updated_logits = watermaker.update_logits(logits) # here we could optimize by taking only the last logits
+        updated_logits = torch.softmax(updated_logits,dim=2)
+        assert updated_logits[:,-1,:].sum() == 1.0, f"sum of logits should be 1 but got {updated_logits[:,-1,:].sum()}"
+        print(updated_logits.shape)
+
     return
 
 
