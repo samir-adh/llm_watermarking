@@ -1,0 +1,15 @@
+{
+  "id": "abdousamir8/llm-watermark-sweep",
+  "title": "LLM Watermark Sweep",
+  "code_file": "kaggle_demo.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaL4",
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": ["mistral-ai/ministral-3/Transformers/ministral-3-3b-base-2512/1"]
+}

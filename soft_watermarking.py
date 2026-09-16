@@ -68,7 +68,7 @@ def _():
             return new_logits
 
 
-    return FloatTensor, SoftWaterMarker
+    return FloatTensor, SoftWaterMarker, Tensor
 
 
 @app.cell(hide_code=True)
@@ -101,13 +101,7 @@ def _(FloatTensor):
 
     logits: FloatTensor = outputs.logits  # ty:ignore[invalid-assignment]
     print(logits.shape)  # [batch_size, sequence_length, vocab_size]
-    return (
-        AutoModelForCausalLM,
-        AutoTokenizer,
-        CausalLMOutputWithPast,
-        logits,
-        torch,
-    )
+    return AutoTokenizer, logits, model, model_name, torch
 
 
 @app.cell
@@ -122,33 +116,55 @@ def _(SoftWaterMarker, logits: "FloatTensor", torch):
 
 
 @app.cell
-def _(
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    CausalLMOutputWithPast,
-    FloatTensor,
-    SoftWaterMarker,
-    torch,
-):
-    import abc
-
-    def generate(model: AutoModelForCausalLM, model_name:str, prompt: str, n_tokens: int, watermaker: SoftWaterMarker ):
+def _(AutoTokenizer, SoftWaterMarker, Tensor, torch):
+    from transformers import PreTrainedModel
+    def generate(
+        model: PreTrainedModel,
+        model_name: str,
+        prompt: str,
+        n_tokens: int,
+        watermarker: SoftWaterMarker | None = None,
+    ) -> list[str]:
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         assert tokenizer
         inputs: dict[str, torch.Tensor] = tokenizer(prompt, return_tensors="pt")
-    
-        with torch.no_grad():
-            outputs: CausalLMOutputWithPast = model(**inputs)
-    
-        logits: FloatTensor = outputs.logits
-        print(logits.shape)
-        vocabulary_size = logits.shape[2]
-        watermaker = SoftWaterMarker(seed=42, vocabulary_size=vocabulary_size,ratio=0.5, delta=2)
-        updated_logits = watermaker.update_logits(logits) # here we could optimize by taking only the last logits
-        updated_logits = torch.softmax(updated_logits,dim=2)
-        assert updated_logits[:,-1,:].sum() == 1.0, f"sum of logits should be 1 but got {updated_logits[:,-1,:].sum()}"
-        print(updated_logits.shape)
+        input_ids = inputs["input_ids"].to(model.device)
+        attention_mask = inputs["attention_mask"].to(model.device)
 
+        for _ in range(n_tokens):
+            with torch.no_grad():
+                outputs = model(**inputs)
+
+            logits: Tensor = outputs.logits
+            if watermarker:
+                logits = watermarker.update_logits(logits)
+                assert logits[:, -1, :].sum() == 1.0, (
+                    f"sum of logits should be 1 but got {logits[:, -1, :].sum()}"
+                )
+            next_token_logits = logits[:, -1, :]
+            probs = torch.softmax(next_token_logits, dim=-1)
+            next_token = torch.multinomial(probs, num_samples=1)
+            input_ids = torch.cat([input_ids, next_token], dim=-1)
+            attention_mask = torch.cat(
+                [attention_mask, torch.ones_like(next_token)], dim=-1
+            )
+            if next_token.item() == tokenizer.eos_token_id:
+                break
+            print("next token: ", tokenizer.decode(next_token))
+        return tokenizer.decode(input_ids[0], skip_special_tokens=True )
+
+    return (generate,)
+
+
+@app.cell
+def _(generate, model, model_name):
+    prompt = """
+    Alice: Hello Bob, how are you?
+    Bob: Hello Alice, I'm fine what"""
+    n_tokens = 2
+    watermarker = None
+    output = generate(model, model_name, prompt, n_tokens, watermarker)
+    print(output)
     return
 
 
