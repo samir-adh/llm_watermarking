@@ -36,7 +36,6 @@ def _():
     import numpy as np
     from torch import FloatTensor, Tensor
 
-
     class SoftWaterMarker:
         def __init__(
             self, seed: int | None, vocabulary_size: int, ratio: float, delta: float
@@ -66,7 +65,6 @@ def _():
             for i in self.green_list:
                 new_logits[:, -1, i] += self.delta
             return new_logits
-
 
     return FloatTensor, SoftWaterMarker, Tensor
 
@@ -107,10 +105,16 @@ def _(FloatTensor):
 @app.cell
 def _(SoftWaterMarker, logits: "FloatTensor", torch):
     vocabulary_size = logits.shape[2]
-    watermaker = SoftWaterMarker(seed=42, vocabulary_size=vocabulary_size,ratio=0.5, delta=2)
-    updated_logits = watermaker.update_logits(logits) # here we could optimize by taking only the last logits
-    updated_logits = torch.softmax(updated_logits,dim=2)
-    assert updated_logits[:,-1,:].sum() == 1.0, f"sum of logits should be 1 but got {updated_logits[:,-1,:].sum()}"
+    watermaker = SoftWaterMarker(
+        seed=42, vocabulary_size=vocabulary_size, ratio=0.5, delta=2
+    )
+    updated_logits = watermaker.update_logits(
+        logits
+    )  # here we could optimize by taking only the last logits
+    updated_logits = torch.softmax(updated_logits, dim=2)
+    assert updated_logits[:, -1, :].sum() == 1.0, (
+        f"sum of logits should be 1 but got {updated_logits[:, -1, :].sum()}"
+    )
     print(updated_logits.shape)
     return
 
@@ -118,6 +122,7 @@ def _(SoftWaterMarker, logits: "FloatTensor", torch):
 @app.cell
 def _(AutoTokenizer, SoftWaterMarker, Tensor, torch):
     from transformers import PreTrainedModel
+
     def generate(
         model: PreTrainedModel,
         model_name: str,
@@ -151,7 +156,7 @@ def _(AutoTokenizer, SoftWaterMarker, Tensor, torch):
             if next_token.item() == tokenizer.eos_token_id:
                 break
             print("next token: ", tokenizer.decode(next_token))
-        return tokenizer.decode(input_ids[0], skip_special_tokens=True )
+        return tokenizer.decode(input_ids[0], skip_special_tokens=True)
 
     return (generate,)
 

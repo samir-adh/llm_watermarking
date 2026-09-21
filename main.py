@@ -1,7 +1,7 @@
-from typing import Any
 import functools
 import math
 import random
+from typing import Any
 
 import numpy as np
 import torch
@@ -14,6 +14,7 @@ from transformers import (
     TokenizersBackend,
 )
 from transformers.modeling_outputs import CausalLMOutputWithPast
+from transformers.generation.watermarking import WatermarkDetector
 
 MODEL_NAME = "facebook/opt-125m"
 # MODEL_NAME = "LiquidAI/LFM2.5-1.2B-Base"
@@ -21,10 +22,11 @@ VOCABULARY_SIZE = 50272
 
 
 class MockLLM(nn.Module):
-    def __init__(self, vocabulary_size=VOCABULARY_SIZE, hidden_size: int = 32) -> None:
+    def __init__(self, vocabulary_size=VOCABULARY_SIZE) -> None:
         super().__init__()
-        self.embeddings = nn.Embedding(vocabulary_size, hidden_size)
-        self.lm_head = nn.Linear(hidden_size, vocabulary_size)
+        self.embeddings = nn.Embedding(vocabulary_size, 1)
+        self.lm_head = nn.Linear(1, vocabulary_size)
+        self.vocabulary_size = vocabulary_size
 
     @property
     def device(self) -> torch.device:
@@ -34,7 +36,10 @@ class MockLLM(nn.Module):
         self, input_ids: Tensor, attention_mask: Tensor | None = None, **kwargs: Any
     ) -> CausalLMOutputWithPast:
         # input_ids: (batch, n_tokens) -> logits: (batch, n_tokens, vocab_size)
-        return CausalLMOutputWithPast(logits=self.lm_head(self.embeddings(input_ids)))
+        output = FloatTensor(
+            torch.randn(size=(*input_ids.size(), self.vocabulary_size))
+        )
+        return CausalLMOutputWithPast(logits=output)
 
 
 class SoftWaterMarker:
@@ -145,7 +150,7 @@ def count_green_tokens(output: Tensor, green_set: set[int]):
 
 def main():
     prompt = "hello"
-    n_tokens = 200
+    n_tokens = 100
     model_name = MODEL_NAME
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     assert tokenizer
