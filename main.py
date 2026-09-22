@@ -160,7 +160,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     assert tokenizer
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, device_map="auto", dtype="bfloat16"
+        model_name, device_map="auto", dtype="bfloat16",token=HF_TOKEN
     )
     # model = MockLLM()
     vocabulary_size = VOCABULARY_SIZE
