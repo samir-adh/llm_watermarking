@@ -5,6 +5,7 @@ import random
 from typing import Any
 
 import numpy as np
+from sympy.core.intfunc import sys
 import torch
 import torch.nn as nn
 from dotenv import load_dotenv
@@ -89,12 +90,16 @@ def generate(
     input_ids = inputs["input_ids"].to(model.device)
     attention_mask = inputs["attention_mask"].to(model.device)
     past_key_values = None
-    
+
     for _ in range(n_tokens):
         with torch.no_grad():
             model_input_ids = input_ids if past_key_values is None else next_token
-            outputs = model(input_ids=model_input_ids, attention_mask=attention_mask, past_key_values= past_key_values, use_cache=True)
-            
+            outputs = model(
+                input_ids=model_input_ids,
+                attention_mask=attention_mask,
+                past_key_values=past_key_values,
+                use_cache=True,
+            )
 
         logits: Tensor = outputs.logits
         if watermarker:
@@ -158,12 +163,14 @@ def count_green_tokens(output: Tensor, green_set: set[int]):
 
 def main():
     prompt = "hello"
+    if len(sys.argv) > 1:
+        prompt = sys.argv[1]
     n_tokens = 100
     model_name = MODEL_NAME
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
     assert tokenizer
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, device_map="auto", dtype="bfloat16",token=HF_TOKEN
+        model_name, device_map="auto", dtype="bfloat16", token=HF_TOKEN
     )
     # model = MockLLM()
     vocabulary_size = VOCABULARY_SIZE
