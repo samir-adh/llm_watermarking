@@ -60,6 +60,7 @@ class SoftWaterMarker:
         # For now we create the green list in advanced.
         # TODO: use the hash of the token t_0 to seed the generator at each token.
         self.green_list = set(shuffled_indices[:green_list_size])
+        self.green_idx = torch.tensor(sorted(self.green_list))
         # self.red_list = shuffled_indices[green_list_size:]
 
     def update_probs(self, logits: Tensor) -> Tensor:
@@ -73,8 +74,7 @@ class SoftWaterMarker:
             tuple[list[float], list[int], list[int]]: Updated logits, green list and red list.
         """
         new_logits: Tensor = logits.clone()
-        for i in self.green_list:
-            new_logits[:, -1, i] += self.delta
+        new_logits[:, -1, self.green_idx.to(logits.device)] += self.delta
         return new_logits
 
 
