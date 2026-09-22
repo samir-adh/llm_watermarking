@@ -174,7 +174,7 @@ def main():
         model_name, device_map="auto", dtype="bfloat16", token=HF_TOKEN
     )
     # model = MockLLM()
-    vocabulary_size = VOCABULARY_SIZE
+    vocabulary_size = tokenizer.vocab_size
     gamma = 0.5
     delta = 2
     watermarker = SoftWaterMarker(
