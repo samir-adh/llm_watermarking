@@ -88,10 +88,13 @@ def generate(
     inputs: dict[str, torch.Tensor] = tokenizer(prompt, return_tensors="pt")
     input_ids = inputs["input_ids"].to(model.device)
     attention_mask = inputs["attention_mask"].to(model.device)
-
+    past_key_values = None
+    
     for _ in range(n_tokens):
         with torch.no_grad():
-            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+            model_input_ids = input_ids if past_key_values is None else next_token
+            outputs = model(input_ids=model_input_ids, attention_mask=attention_mask, past_key_values= past_key_values, use_cache=True)
+            
 
         logits: Tensor = outputs.logits
         if watermarker:
