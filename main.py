@@ -1,11 +1,13 @@
 import functools
 import math
+import os
 import random
 from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
+from dotenv import load_dotenv
 from torch import FloatTensor, Tensor
 from transformers import (
     AutoModelForCausalLM,
@@ -13,10 +15,13 @@ from transformers import (
     PreTrainedModel,
     TokenizersBackend,
 )
-from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.generation.watermarking import WatermarkDetector
+from transformers.modeling_outputs import CausalLMOutputWithPast
 
-MODEL_NAME = "facebook/opt-125m"
+load_dotenv()
+
+MODEL_NAME = os.environ["MODEL_NAME"]
+HF_TOKEN = os.environ["HUGGING_FACE_TOKEN"]
 # MODEL_NAME = "LiquidAI/LFM2.5-1.2B-Base"
 VOCABULARY_SIZE = 50272
 
@@ -154,10 +159,10 @@ def main():
     model_name = MODEL_NAME
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     assert tokenizer
-    # model = AutoModelForCausalLM.from_pretrained(
-    #     model_name, device_map="auto", dtype="bfloat16"
-    # )
-    model = MockLLM()
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, device_map="auto", dtype="bfloat16"
+    )
+    # model = MockLLM()
     vocabulary_size = VOCABULARY_SIZE
     gamma = 0.5
     delta = 2
