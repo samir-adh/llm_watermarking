@@ -91,7 +91,7 @@ def generate(
 
     for _ in range(n_tokens):
         with torch.no_grad():
-            outputs = model(**inputs)
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
 
         logits: Tensor = outputs.logits
         if watermarker:
@@ -157,7 +157,7 @@ def main():
     prompt = "hello"
     n_tokens = 100
     model_name = MODEL_NAME
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
     assert tokenizer
     model = AutoModelForCausalLM.from_pretrained(
         model_name, device_map="auto", dtype="bfloat16",token=HF_TOKEN
