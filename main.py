@@ -1,3 +1,4 @@
+import time
 import functools
 import math
 import os
@@ -179,12 +180,16 @@ def main():
     watermarker = SoftWaterMarker(
         vocabulary_size=vocabulary_size, delta=delta, gamma=gamma, seed=42
     )
+    start = time.time()
     output = generate(model, prompt, n_tokens, tokenizer, watermarker)
+    ttgen = time.time() - start
+    tps = len(output) / ttgen
+    print(f"tps={tps}")
     print("output size: ", output.size())
     green_tokens = count_green_tokens(output, watermarker.green_list)
     z = z_score(green_tokens, len(output), gamma)
-    print("green list:", list(watermarker.green_list)[:5])
-    print("output: ", output[:5])
+    # print("green list:", list(watermarker.green_list)[:5])
+    # print("output: ", output[:5])
     decoded_output = tokenizer.decode(output)
     print("decoded output: ", decoded_output)
     print("z=", z)
