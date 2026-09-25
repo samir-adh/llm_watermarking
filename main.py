@@ -157,7 +157,7 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(
         model_name, device_map="auto", dtype="bfloat16", token=HF_TOKEN
     )
-    vocabulary_size = tokenizer.vocab_size
+    vocabulary_size = model.config.vocab_size
     gamma = 0.5
     delta = 2
     watermarker = SoftWaterMarker(
@@ -182,7 +182,7 @@ def test_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     assert tokenizer
     prev = tokenizer.encode(prompt)
-    for i in range(10):
+    for _ in range(10):
         current = tokenizer.encode(prompt)
         assert prev == current, (
             f"len(prev)=={len(prev)} vs len(current)=={len(current)}"
