@@ -2,22 +2,19 @@ import time
 import functools
 import math
 import os
+import sys
 import random
 from typing import Any
 
-import numpy as np
-from sympy.core.intfunc import sys
 import torch
-import torch.nn as nn
+from torch import nn
 from dotenv import load_dotenv
 from torch import FloatTensor, Tensor
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     PreTrainedModel,
-    TokenizersBackend,
 )
-from transformers.generation.watermarking import WatermarkDetector
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 load_dotenv()
@@ -63,7 +60,6 @@ class SoftWaterMarker:
         # TODO: use the hash of the token t_0 to seed the generator at each token.
         self.green_list = set(shuffled_indices[:green_list_size])
         self.green_idx = torch.tensor(sorted(self.green_list))
-        # self.red_list = shuffled_indices[green_list_size:]
 
     def update_probs(self, logits: Tensor) -> Tensor:
         """
@@ -89,8 +85,10 @@ def generate(
 ) -> Tensor:
     inputs: dict[str, torch.Tensor] = tokenizer(prompt, return_tensors="pt")
     input_ids = inputs["input_ids"].to(model.device)
+    prompt_len = input_ids.shape[-1]
     attention_mask = inputs["attention_mask"].to(model.device)
     past_key_values = None
+    next_token = None
 
     for _ in range(n_tokens):
         with torch.no_grad():
@@ -116,22 +114,8 @@ def generate(
         )
         if next_token.item() == tokenizer.eos_token_id:
             break
-        # print("next token: ", tokenizer.decode(next_token))
-    return input_ids[0]
-
-
-def binomial(k: int, n: int):
-    assert k <= n
-
-    @functools.cache
-    def factorial(n: int):
-        assert n >= 0
-        if n == 0:
-            return 1
-        else:
-            return n * factorial(n - 1)
-
-    return factorial(n) / (factorial(k) * factorial(n - k))
+        past_key_values = outputs.past_key_values
+    return input_ids[0, prompt_len:]
 
 
 def prop_under_null(
@@ -143,7 +127,7 @@ def prop_under_null(
     return (
         math.comb(n, green_tokens)
         * ((gamma) ** green_tokens)
-        * ((gamma) ** (n - green_tokens))
+        * ((1 - gamma) ** (n - green_tokens))
     )
 
 
@@ -163,17 +147,16 @@ def count_green_tokens(output: Tensor, green_set: set[int]):
 
 
 def main():
-    prompt = "hello"
+    prompt = "I am currently in the train from "
     if len(sys.argv) > 1:
         prompt = sys.argv[1]
-    n_tokens = 100
+    n_tokens = 64
     model_name = MODEL_NAME
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
     assert tokenizer
     model = AutoModelForCausalLM.from_pretrained(
         model_name, device_map="auto", dtype="bfloat16", token=HF_TOKEN
     )
-    # model = MockLLM()
     vocabulary_size = tokenizer.vocab_size
     gamma = 0.5
     delta = 2
@@ -185,13 +168,12 @@ def main():
     ttgen = time.time() - start
     tps = len(output) / ttgen
     print(f"tps={tps}")
-    print("output size: ", output.size())
+    print("output size: ", output.shape[-1])
     green_tokens = count_green_tokens(output, watermarker.green_list)
     z = z_score(green_tokens, len(output), gamma)
-    # print("green list:", list(watermarker.green_list)[:5])
-    # print("output: ", output[:5])
     decoded_output = tokenizer.decode(output)
-    print("decoded output: ", decoded_output)
+    assert isinstance(decoded_output, str)
+    print("prompt and decoded output: \n", prompt + decoded_output)
     print("z=", z)
 
 
